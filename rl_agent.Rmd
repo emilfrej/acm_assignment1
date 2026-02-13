@@ -1,0 +1,88 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-02-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+pacman::p_load(tidyverse)
+
+
+# where v is expected value of playing right
+rl_agent <- function(v_prev, choice_prev, outcome_prev, lr) {
+
+  ## Get the right PE ## 
+  #if last choice was right, update PE directly
+  if (choice_prev == 1){
+    PE <- outcome_prev - v_prev
+  } 
+  
+  #otherwise flip outcome so we calculate PE as if we had played right
+  else {
+    PE <- -1*outcome_prev - v_prev
+  }
+  
+  #update expected value of playing right
+  v_curr <- v_prev + lr*PE
+  
+  #if ev playing right is positive, return 1, else return 0.
+  if (v_curr > 0) {
+    choice <- 1
+  }
+  else {
+    choice <- 0
+  }
+  return(list(choice, v_curr))
+}
+
+
+
+
+
+```
+
+
+```{r}
+trials = 100
+vs = c(0)
+
+choices = c(1)
+fixed_opponenent = rep(1, trials)
+
+outcomes = c(if_else(fixed_opponenent[1] == choices[1],  1, -1))
+
+#loop through trials
+for (t in 2:trials){
+
+  #get vals for previous trial
+  outcome_prev = outcomes[t-1]
+  choice_prev = choices[t-1]
+  v_prev = vs[t-1]
+  
+  #make choice for rl agent
+  result <- rl_agent(v_prev, choice_prev, outcome_prev, 0.1)
+  
+  choice  <- result$choice
+  v_curr  <- result$v_curr
+  
+  #store choices and expected values
+  choices <- c(choices, choice)
+  vs <- c(vs, v_curr)
+  
+  #opponent choice
+  opponent_choice <- fixed_opponenent[t]
+  
+  #get outcome at current trial
+  outcome <- if_else(choice == opponent_choice, 1, -1)
+  outcomes <- c(outcomes, outcome)
+
+}
+
+
+```
+
