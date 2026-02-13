@@ -37,11 +37,11 @@ rl_agent <- function(v_prev, choice_prev, outcome_prev, lr) {
   else {
     choice <- 0
   }
-  return(list(choice, v_curr))
+  return(list(choice = choice, v_curr = v_curr))
 }
 
 
-
+rl_agent(0, 1, -1, 0.01)
 
 
 ```
@@ -49,10 +49,10 @@ rl_agent <- function(v_prev, choice_prev, outcome_prev, lr) {
 
 ```{r}
 trials = 100
-vs = c(0)
+vs = c(1)
 
 choices = c(1)
-fixed_opponenent = rep(1, trials)
+fixed_opponenent = rep(0, trials)
 
 outcomes = c(if_else(fixed_opponenent[1] == choices[1],  1, -1))
 
@@ -80,6 +80,8 @@ for (t in 2:trials){
   #get outcome at current trial
   outcome <- if_else(choice == opponent_choice, 1, -1)
   outcomes <- c(outcomes, outcome)
+  
+  print(choice)
 
 }
 
