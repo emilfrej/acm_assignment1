@@ -8,9 +8,28 @@ date: "2026-02-13"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+#load packages
+pacman::p_load(tidyverse)
+```
+
+
+We set up two types of agents. One is biased agent. It plays $1$ with fixed probability $p$. It is just a bernoulli draw. 
 
 ```{r}
-pacman::p_load(tidyverse)
+biased_agent <- function(p){
+  
+  #return bernoulli flip
+  choice <- rbinom(1,1,p)
+  
+  return(choice)
+}
+
+```
+
+
+The second agent is a determinstic reinforcement learning agent. It keeps track of expected value of each choice on each trial. Since the there are only two choices with symmetric payoffs, our implementation only tracks the EV of one action. 
+```{r}
 
 
 # where v is expected value of playing right
@@ -37,54 +56,89 @@ rl_agent <- function(v_prev, choice_prev, outcome_prev, lr) {
   else {
     choice <- 0
   }
+  
+  #return results as named values
   return(list(choice = choice, v_curr = v_curr))
 }
-
-
-rl_agent(0, 1, -1, 0.01)
-
-
 ```
 
-
+We then run 25 simulations. In each we pair a biased agent with a specific $p$ of choosing 1 against a RL agent with a specific learning rate, $\alpha$ . We do cross 5 $\alpha$s against 5 $p$s and have the agents play 100 trials of the penny matching game. 
 ```{r}
+
+## Setup configs for simulation loop ## 
+#test loop were RL agent is matcher, ie it gets a point for matching opponent play. 
 trials = 100
-vs = c(1)
 
-choices = c(1)
-fixed_opponenent = rep(0, trials)
+biases = c(0.05, 0.1, .2, .4, .8)
+learning_rates = c(.01, 0.05, 0.1, .25, .5)
 
-outcomes = c(if_else(fixed_opponenent[1] == choices[1],  1, -1))
 
-#loop through trials
-for (t in 2:trials){
 
-  #get vals for previous trial
-  outcome_prev = outcomes[t-1]
-  choice_prev = choices[t-1]
-  v_prev = vs[t-1]
-  
-  #make choice for rl agent
-  result <- rl_agent(v_prev, choice_prev, outcome_prev, 0.1)
-  
-  choice  <- result$choice
-  v_curr  <- result$v_curr
-  
-  #store choices and expected values
-  choices <- c(choices, choice)
-  vs <- c(vs, v_curr)
-  
-  #opponent choice
-  opponent_choice <- fixed_opponenent[t]
-  
-  #get outcome at current trial
-  outcome <- if_else(choice == opponent_choice, 1, -1)
-  outcomes <- c(outcomes, outcome)
-  
-  print(choice)
+#prep df
+total_df <- tibble()
 
+
+for (learning_rate in learning_rates){
+  for (bias in biases){
+    
+  ## Prep vectors
+  #prep vector with expected vals of playing 1 for the RL agent
+  expected_values = c(1)
+  
+  #prep vector for matcher (RL agent)
+  matcher_choices = c(1)
+  
+  #prep vector for mismatcher
+  mismatcher_choices = c(1)
+  
+  #prep outcomes vector for matcher
+  outcomes_matcher = c(if_else(mismatcher_choices [1] == matcher_choices[1],  1, -1))
+  
+  
+  #loop through trials
+    for (t in 2:trials){
+    
+      ## Biased agent. MISMATCHER
+      mismatcher_choice <- biased_agent(bias)
+      mismatcher_choices <- c(mismatcher_choices, mismatcher_choice)
+      
+      ## RL part: MATCHER
+      #get vals for previous trial for RL
+      outcome_prev = outcomes_matcher[t-1]
+      choice_prev = matcher_choices[t-1]
+      expected_value_prev = expected_values[t-1]
+      
+      #make choice for rl agent
+      result <- rl_agent(expected_value_prev, choice_prev, outcome_prev, learning_rate)
+      
+      matcher_choice <- result$choice
+      v_curr  <- result$v_curr
+      
+      #store choices and expected values
+      matcher_choices <- c(matcher_choices, matcher_choice)
+      expected_values <- c(expected_values, v_curr)
+    
+  
+      #get outcome at current trial and store
+      outcome_matcher <- if_else(matcher_choice == mismatcher_choice, 1, -1)
+      outcomes_matcher <- c(outcomes_matcher, outcome_matcher)
+    } 
+  
+  #store a signle run as df
+  df <- tibble(trial = c(1:trials), matcher_choices, mismatcher_choices, outcomes_matcher, expected_values, learning_rate = rep(learning_rate, trials), bias = rep(bias, trials)) 
+  
+  
+  total_df <- bind_rows(total_df, df)
+  }
 }
+```
 
+This provides us with a dataframe, which we can use for plotting. 
+```{r}
+total_df
+```
+```{r}
 
 ```
+
 
