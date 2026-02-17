@@ -69,7 +69,7 @@ We then run 25 simulations. In each we pair a biased agent with a specific $p$ o
 #test loop were RL agent is matcher, ie it gets a point for matching opponent play. 
 trials = 100
 
-biases = c(0.05, 0.1, .2, .4, .8)
+biases = c(0.05, 0.1, .2, .4, .5)
 learning_rates = c(.01, 0.05, 0.1, .25, .5)
 
 
@@ -133,11 +133,22 @@ for (learning_rate in learning_rates){
 }
 ```
 
-This provides us with a dataframe, which we can use for plotting. 
+This provides us with a dataframe, which we can use for plotting. We get the cumultative performance. for the RL agent
 ```{r}
-total_df
-```
+total_df  <- total_df %>% 
+  group_by(learning_rate, bias) %>% 
+  mutate(cumultative_performance = cumsum(outcomes_matcher))
+``` 
+
+
 ```{r}
+#plot expected values
+
+ggplot(total_df, aes(x = trial, y=expected_values, color = bias, group = bias)) + 
+  geom_line() +
+  facet_wrap(~learning_rate) + 
+  geom_hline(yintercept = 0, linetype= "dashed") +
+  theme_classic() 
 
 ```
 
