@@ -64,71 +64,73 @@ rl_agent <- function(v_prev, choice_prev, outcome_prev, lr) {
 
 We then run 25 simulations. In each we pair a biased agent with a specific $p$ of choosing 1 against a RL agent with a specific learning rate, $\alpha$ . We do cross 5 $\alpha$s against 5 $p$s and have the agents play 100 trials of the penny matching game. 
 ```{r}
+set.seed(1)
 
 ## Setup configs for simulation loop ## 
 #test loop were RL agent is matcher, ie it gets a point for matching opponent play. 
 trials = 100
+sims = 25
 
 biases = c(0.05, 0.1, .2, .4, .5)
 learning_rates = c(.01, 0.05, 0.1, .25, .5)
-
-
 
 #prep df
 total_df <- tibble()
 
 
-for (learning_rate in learning_rates){
-  for (bias in biases){
+for (sim_i in sims){
+  for (learning_rate in learning_rates){
+    for (bias in biases){
+      
+    ## Prep vectors
+    #prep vector with expected vals of playing 1 for the RL agent
+    expected_values = c(1)
     
-  ## Prep vectors
-  #prep vector with expected vals of playing 1 for the RL agent
-  expected_values = c(1)
-  
-  #prep vector for matcher (RL agent)
-  matcher_choices = c(1)
-  
-  #prep vector for mismatcher
-  mismatcher_choices = c(1)
-  
-  #prep outcomes vector for matcher
-  outcomes_matcher = c(if_else(mismatcher_choices [1] == matcher_choices[1],  1, -1))
-  
-  
-  #loop through trials
-    for (t in 2:trials){
+    #prep vector for matcher (RL agent)
+    matcher_choices = c(1)
     
-      ## Biased agent. MISMATCHER
-      mismatcher_choice <- biased_agent(bias)
-      mismatcher_choices <- c(mismatcher_choices, mismatcher_choice)
-      
-      ## RL part: MATCHER
-      #get vals for previous trial for RL
-      outcome_prev = outcomes_matcher[t-1]
-      choice_prev = matcher_choices[t-1]
-      expected_value_prev = expected_values[t-1]
-      
-      #make choice for rl agent
-      result <- rl_agent(expected_value_prev, choice_prev, outcome_prev, learning_rate)
-      
-      matcher_choice <- result$choice
-      v_curr  <- result$v_curr
-      
-      #store choices and expected values
-      matcher_choices <- c(matcher_choices, matcher_choice)
-      expected_values <- c(expected_values, v_curr)
+    #prep vector for mismatcher
+    mismatcher_choices = c(1)
     
-  
-      #get outcome at current trial and store
-      outcome_matcher <- if_else(matcher_choice == mismatcher_choice, 1, -1)
-      outcomes_matcher <- c(outcomes_matcher, outcome_matcher)
-    } 
-  
-  #store a signle run as df
-  df <- tibble(trial = c(1:trials), matcher_choices, mismatcher_choices, outcomes_matcher, expected_values, learning_rate = rep(learning_rate, trials), bias = rep(bias, trials)) 
-  
-  
-  total_df <- bind_rows(total_df, df)
+    #prep outcomes vector for matcher
+    outcomes_matcher = c(if_else(mismatcher_choices [1] == matcher_choices[1],  1, -1))
+    
+    
+    #loop through trials
+      for (t in 2:trials){
+      
+        ## Biased agent. MISMATCHER
+        mismatcher_choice <- biased_agent(bias)
+        mismatcher_choices <- c(mismatcher_choices, mismatcher_choice)
+        
+        ## RL part: MATCHER
+        #get vals for previous trial for RL
+        outcome_prev = outcomes_matcher[t-1]
+        choice_prev = matcher_choices[t-1]
+        expected_value_prev = expected_values[t-1]
+        
+        #make choice for rl agent
+        result <- rl_agent(expected_value_prev, choice_prev, outcome_prev, learning_rate)
+        
+        matcher_choice <- result$choice
+        v_curr  <- result$v_curr
+        
+        #store choices and expected values
+        matcher_choices <- c(matcher_choices, matcher_choice)
+        expected_values <- c(expected_values, v_curr)
+      
+    
+        #get outcome at current trial and store
+        outcome_matcher <- if_else(matcher_choice == mismatcher_choice, 1, -1)
+        outcomes_matcher <- c(outcomes_matcher, outcome_matcher)
+      } 
+    
+    #store a signle run as df
+    df <- tibble(trial = c(1:trials), sim = rep(sim_i, trials), matcher_choices, mismatcher_choices, outcomes_matcher, expected_values, learning_rate = rep(learning_rate, trials), bias = rep(bias, trials)) 
+    
+    
+    total_df <- bind_rows(total_df, df)
+    }
   }
 }
 ```
@@ -136,15 +138,27 @@ for (learning_rate in learning_rates){
 This provides us with a dataframe, which we can use for plotting. We get the cumultative performance. for the RL agent
 ```{r}
 total_df  <- total_df %>% 
-  group_by(learning_rate, bias) %>% 
+  group_by(learning_rate, bias, sim) %>% 
+  #get the performance at each trial
   mutate(cumultative_performance = cumsum(outcomes_matcher))
+
+
+#average
+avg_total_df <-  total_df %>% 
+  group_by(learning_rate, bias, trial) %>% 
+  summarize(average_ev = mean(expected_values),
+            average_cumulatative_performance_per_trial = mean(cumultative_performance / trial))
+  
+  
+  
+
 ``` 
 
 
 ```{r}
 #plot expected values
 
-ggplot(total_df, aes(x = trial, y=expected_values, color = bias, group = bias)) + 
+ggplot(avg_total_df, aes(x = trial, y=average_ev, color = bias, group = bias)) + 
   geom_line() +
   facet_wrap(~learning_rate) + 
   geom_hline(yintercept = 0, linetype= "dashed") +
@@ -152,4 +166,12 @@ ggplot(total_df, aes(x = trial, y=expected_values, color = bias, group = bias)) 
 
 ```
 
+```{r}
+ggplot(avg_total_df, aes(x = trial, y=average_cumulatative_performance_per_trial , color = bias, group = bias)) + 
+  geom_line() +
+  facet_wrap(~learning_rate) + 
+  geom_hline(yintercept = 0, linetype= "dashed") +
+  theme_classic() 
+
+```
 
